@@ -1,0 +1,13 @@
+services:
+  signaling:
+    build:
+      context: .
+      dockerfile: apps/signaling/Dockerfile
+    environment:
+      HUDDLE_ALLOWED_ORIGIN: ${HUDDLE_ALLOWED_ORIGIN:-http://localhost:5173}
+      HUDDLE_SIGNALING_PORT: 4002
+      HUDDLE_BIND_HOST: 0.0.0.0
+      HUDDLE_ICE_SERVERS: ${HUDDLE_ICE_SERVERS:-[]}
+      EXPERIMENTAL_DEVICE_FALLBACK: "false"
+    ports:
+      - "4002:4002"

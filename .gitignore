@@ -41,20 +41,23 @@ coverage/
 temp/
 *.local
 
-# Optional: if using testing frameworks
+# testing frameworks
 jest-cache/
 jest-report/
 test-results/
 
-# Optional: if using ESLint or Prettier cache
+# ESLint or Prettier cache
 .eslintcache
 .prettier-cache
 
-# Optional: if using Next.js for SSR
+# Next.js for SSR
 .next/
 out/
 
-# Optional: if using Docker
+# Docker
 docker-data/
 docker-compose.override.yml
 .dockerignore
+
+# Agents
+AGENTS.md

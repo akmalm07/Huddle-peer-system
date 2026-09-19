@@ -1,0 +1,42 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "presence": {
+      "$accountId": {
+        "$deviceId": {
+          ".read": "auth != null && auth.uid === $accountId",
+          ".write": "auth != null && auth.uid === $accountId && newData.hasChildren(['expiresAtMs', 'state']) && newData.child('expiresAtMs').isNumber() && newData.child('expiresAtMs').val() > now && newData.child('expiresAtMs').val() <= now + 300000 && newData.child('state').isString() && newData.child('state').val().length <= 32"
+        }
+      }
+    },
+    "signaling": {
+      "$huddleId": {
+        "$recipientDeviceId": {
+          "$signalId": {
+            ".read": "auth != null && data.child('recipientAccountId').val() === auth.uid && data.child('expiresAtMs').val() > now",
+            ".write": "auth != null && !data.exists() && root.child('huddleMembers').child($huddleId).child(auth.uid).val() === true && root.child('huddleMembers').child($huddleId).child(newData.child('recipientAccountId').val()).val() === true && newData.hasChildren(['senderAccountId', 'recipientAccountId', 'expiresAtMs', 'kind', 'body']) && newData.child('senderAccountId').val() === auth.uid && newData.child('recipientAccountId').isString() && newData.child('expiresAtMs').isNumber() && newData.child('expiresAtMs').val() > now && newData.child('expiresAtMs').val() <= now + 300000 && newData.child('kind').isString() && newData.child('kind').val().length <= 32 && newData.child('body').isString() && newData.child('body').val().length <= 87384"
+          }
+        }
+      }
+    },
+    "enrollment": {
+      "$challengeId": {
+        ".read": "auth != null && data.child('accountId').val() === auth.uid && data.child('expiresAtMs').val() > now",
+        ".write": false
+      }
+    },
+    "acks": {
+      "$recipientDeviceId": {
+        "$messageId": {
+          ".read": false,
+          ".write": false
+        }
+      }
+    },
+    "huddleMembers": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}

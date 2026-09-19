@@ -1,0 +1,50 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function ownsAccount(accountId) { return signedIn() && request.auth.uid == accountId; }
+    function isActiveMember(huddleId) {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/huddles/$(huddleId)/members/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/huddles/$(huddleId)/members/$(request.auth.uid)).data.status == 'active';
+    }
+
+    // Authorization-changing writes go through the TypeScript API. Rules are
+    // deliberately defense in depth, not a substitute for API verification.
+    match /accounts/{accountId} {
+      allow get: if ownsAccount(accountId);
+      allow list, create, update, delete: if false;
+    }
+    match /devices/{deviceId} {
+      // Public key directory records are public to authenticated Huddle users;
+      // private material is never a legal field in this collection.
+      allow get, list: if signedIn();
+      allow create, update, delete: if false;
+    }
+    match /huddles/{huddleId} {
+      allow get: if isActiveMember(huddleId);
+      allow list, create, update, delete: if false;
+      match /manifests/{version} {
+        allow get: if isActiveMember(huddleId);
+        allow list, create, update, delete: if false;
+      }
+      match /members/{accountId} {
+        allow get: if isActiveMember(huddleId) || ownsAccount(accountId);
+        allow list, create, update, delete: if false;
+      }
+    }
+    match /invitations/{invitationId} {
+      allow get: if signedIn() && resource.data.targetAccountId == request.auth.uid;
+      allow list, create, update, delete: if false;
+    }
+    match /securityEvents/{eventId} {
+      allow get: if signedIn() && resource.data.accountId == request.auth.uid;
+      allow list, create, update, delete: if false;
+    }
+    match /configuration/{version} {
+      allow get, list: if signedIn();
+      allow create, update, delete: if false;
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

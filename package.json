@@ -1,0 +1,29 @@
+{
+  "name": "huddle",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@11.7.0",
+  "engines": {
+    "node": ">=22.12.0",
+    "npm": ">=11.0.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace=@huddle/config && npm run build --workspace=@huddle/crypto && npm run build --workspace=@huddle/observability && npm run build --workspace=@huddle/platform-storage && npm run build --workspace=@huddle/protocol && npm run build --workspace=@huddle/sdk && npm run build --workspace=@huddle/runtime-api && npm run build --workspace=@huddle/webrtc && npm run build --workspace=@huddle/firebase-control-plane && npm run build --workspace=@huddle/firebase-web && npm run build --workspace=@huddle/demo-headless && npm run build --workspace=@huddle/auth && npm run build --workspace=@huddle/signaling && npm run build --workspace=@huddle/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspace=@huddle/web",
+    "test": "npm run test --workspaces --if-present",
+    "dev:web": "npm run dev --workspace=@huddle/web",
+    "dev:auth": "npm run dev --workspace=@huddle/auth",
+    "dev:signaling": "npm run dev --workspace=@huddle/signaling",
+    "demo:headless": "npm run build --workspace=@huddle/demo-headless && node apps/demo-headless/dist/index.js"
+  },
+  "devDependencies": {
+    "@types/node": "24.8.1",
+    "typescript": "5.9.3"
+  },
+  "dependencies": {}
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@huddle/auth",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "npm run build && node dist/index.js"
+  },
+  "dependencies": {
+    "@huddle/config": "0.1.0",
+    "@huddle/observability": "0.1.0"
+  }
+}
