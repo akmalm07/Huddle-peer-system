@@ -17,6 +17,7 @@ jobs:
         with:
           node-version: 22.12.0
           cache: npm
+      - run: npm install --global npm@11.7.0
       - run: npm ci
       - run: npm run lint
       - run: npm run build
