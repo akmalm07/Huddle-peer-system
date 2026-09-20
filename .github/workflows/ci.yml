@@ -27,4 +27,4 @@ jobs:
       - name: Basic secret-pattern scan
         shell: bash
         run: |
-          ! rg --glob '!node_modules/**' --glob '!package-lock.json' --glob '!*.md' '(?i)(api[_-]?key|secret|password)\s*[:=]\s*["'"'][^"'"']{12,}' .
+          ! rg --glob '!node_modules/**' --glob '!package-lock.json' --glob '!*.md' "(?i)(api[_-]?key|secret|password)\s*[:=]\s*[\"'][^\"']{12,}" .
