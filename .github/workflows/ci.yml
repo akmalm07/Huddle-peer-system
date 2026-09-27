@@ -175,7 +175,7 @@ jobs:
           workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ env.DEPLOYER_SERVICE_ACCOUNT }}
       - name: Build configured PWA
-        run: npm run build --workspace @huddle/web
+        run: npm run build
       - name: Deploy PWA to Firebase Hosting
         run: npm exec --yes --package=firebase-tools@15.31.0 -- firebase deploy --project "$GCP_PROJECT_ID" --only "hosting:$FIREBASE_HOSTING_SITE"
       - name: Verify auth through the Hosting rewrite
