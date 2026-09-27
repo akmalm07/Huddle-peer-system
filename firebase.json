@@ -15,6 +15,13 @@
     ],
     "rewrites": [
       {
+        "source": "/healthz",
+        "run": {
+          "serviceId": "huddle-auth",
+          "region": "us-east4"
+        }
+      },
+      {
         "source": "/v1/**",
         "run": {
           "serviceId": "huddle-auth",

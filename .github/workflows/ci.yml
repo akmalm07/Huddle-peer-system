@@ -127,9 +127,8 @@ jobs:
       - name: Verify deployed auth health
         shell: bash
         run: |
-          AUTH_URL="$(gcloud run services describe "$CLOUD_RUN_SERVICE" --project "$GCP_PROJECT_ID" --region "$GCP_REGION" --format='value(status.url)')"
-          test -n "$AUTH_URL"
-          curl --fail --silent --show-error --retry 5 --retry-all-errors "${AUTH_URL}/healthz" | jq -e '.status == "ok" and .service == "auth"'
+          READY="$(gcloud run services describe "$CLOUD_RUN_SERVICE" --project "$GCP_PROJECT_ID" --region "$GCP_REGION" --format='value(status.conditions[?type=Ready].status)')"
+          test "$READY" = "True"
 
   deploy-web:
     name: Build and deploy PWA to Firebase Hosting
@@ -179,3 +178,6 @@ jobs:
         run: npm run build --workspace @huddle/web
       - name: Deploy PWA to Firebase Hosting
         run: npm exec --yes --package=firebase-tools@15.31.0 -- firebase deploy --project "$GCP_PROJECT_ID" --only "hosting:$FIREBASE_HOSTING_SITE"
+      - name: Verify auth through the Hosting rewrite
+        shell: bash
+        run: curl --fail --silent --show-error "${VITE_AUTH_API_ORIGIN}/healthz" | jq -e '.status == "ok" and .service == "auth"'
