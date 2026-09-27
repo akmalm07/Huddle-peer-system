@@ -29,7 +29,7 @@ export default function App() {
       await (mode === "register" ? next.register(username) : next.login(username));
       client.current = next; setAuthenticated(true); setStatus("Signed in. Your device key remains in this browser's IndexedDB.");
       await refreshHuddles(next);
-    } catch (error) { setStatus(displayError(error)); }
+    } catch (error) { setStatus(authenticationError(error, mode)); }
   }
   async function refreshHuddles(active = client.current): Promise<void> { if (active !== undefined) setHuddles(await active.listHuddles()); }
   async function createHuddle(): Promise<void> {
@@ -65,4 +65,8 @@ function shortId(value: string): string { return `${value.slice(0, 8)}…`; }
 function requiredClient(value: HuddleClient | undefined): HuddleClient { if (value === undefined) throw new HuddleClientError("SESSION_REQUIRED"); return value; }
 function requiredHuddle(value: string | undefined): string { if (value === undefined) throw new HuddleClientError("REQUEST_FAILED"); return value; }
 function displayError(error: unknown): string { return error instanceof HuddleClientError ? `Unable to continue: ${error.code}.` : "Unable to continue. Check the deployment configuration and try again."; }
+function authenticationError(error: unknown, mode: Mode): string {
+  if (error instanceof HuddleClientError && error.code === "REQUEST_FAILED") return mode === "login" ? "Unable to sign in. Use the exact username and passkey that were registered together; if this is your first visit, choose Create account." : "Unable to create the account. Choose an available username, then complete the passkey prompt.";
+  return displayError(error);
+}
 function connectionLabel(connection: ConnectionSnapshot | undefined): string { if (connection === undefined) return "not connected"; if (connection.state !== "connected") return connection.state; return connection.transport === "turn" ? "connected via TURN" : connection.transport === "direct" ? "connected directly" : "connected"; }
