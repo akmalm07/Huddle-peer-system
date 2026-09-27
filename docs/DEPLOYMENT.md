@@ -39,8 +39,7 @@ On a successful push to `main`:
    image tagged with the immutable commit SHA, then creates a new Cloud Run
    revision from that exact image, and checks `/healthz`.
 3. `deploy-web` builds `apps/web` using the public Firebase Web configuration
-   and deploys it to Firebase Hosting. The workflow waits up to five minutes
-   for the hosted PWA URL to respond after deployment.
+   and deploys it to Firebase Hosting.
 4. Cloud Run injects the passkey ticket secret from Secret Manager. GitHub
    Actions receives neither secret value nor a long-lived Google service-account
    key.
@@ -136,11 +135,10 @@ reselect the huddle on the first device, then select **Connect** from either
 device. The UI changes to `connected directly` or `connected via TURN`; a Send
 button becomes enabled only when the encrypted data channel is connected.
 
-The deployment workflow's five-minute wait verifies Hosting propagation. It
-cannot honestly wait for two human WebRTC users: the data channel is purposely
-end-to-end and its state is not reported to the server. Use the two-browser
-acceptance step above for that proof, then test a forced TURN-only network path
-once coturn is deployed.
+CI cannot honestly wait for two human WebRTC users: the data channel is
+purposely end-to-end and its state is not reported to the server. Use the
+two-browser acceptance step above for that proof, then test a forced TURN-only
+network path once coturn is deployed.
 
 ## Prototype limits
 

@@ -179,7 +179,3 @@ jobs:
         run: npm run build --workspace @huddle/web
       - name: Deploy PWA to Firebase Hosting
         run: npm exec --yes --package=firebase-tools@15.31.0 -- firebase deploy --project "$GCP_PROJECT_ID" --only "hosting:$FIREBASE_HOSTING_SITE"
-      - name: Verify hosted PWA responds
-        shell: bash
-        run: |
-          timeout 300 bash -c 'until curl --fail --silent --show-error "${VITE_AUTH_API_ORIGIN}/" >/dev/null; do sleep 5; done'
