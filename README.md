@@ -1,8 +1,9 @@
 # Huddle
 
-Huddle is a portfolio-oriented TypeScript foundation for reusable, local-first
-peer-to-peer messaging. It is a messaging system/API for applications to build
-on—not a finished consumer messenger or a production-security claim.
+Huddle is a prototype local-first peer-to-peer messenger. It now includes a
+browser vertical slice for passkey authentication, authorized Firebase
+signaling, WebRTC data-channel delivery, and encryption above WebRTC. It is
+not a production-security claim.
 
 ## Architecture
 
@@ -75,12 +76,13 @@ docker compose up --build signaling
 
 This exposes the signaling/API boundary on port 4002. It is not a message relay.
 
-## Firebase deployment boundary
+## Deploy and test
 
-To run actual browser-to-browser Firebase signaling, provide a demo Firebase
-project, configure the committed `firebase.json`/Rules, and implement the
-Cloud Run token-verifier and Firebase Admin persistence adapters. No Firebase
-project credentials are committed here. See [the WebRTC guide](docs/WEBRTC_PROTOTYPE.md).
+The auth API now mints Firebase custom tokens after passkey verification and
+short-lived TURN credentials after session authorization. Firebase Admin and
+TURN secrets are deployment-only values; no browser build contains them. See
+[the deployment guide](docs/DEPLOYMENT.md) for Firebase, coturn, HTTPS, and
+two-computer setup.
 
 ## Verification
 

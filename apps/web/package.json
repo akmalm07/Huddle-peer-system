@@ -10,6 +10,12 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@huddle/crypto": "0.1.0",
+    "@huddle/firebase-web": "0.1.0",
+    "@huddle/protocol": "0.1.0",
+    "@huddle/webrtc": "0.1.0",
+    "@simplewebauthn/browser": "14.0.0",
+    "firebase": "12.10.0",
     "react": "19.2.0",
     "react-dom": "19.2.0"
   },

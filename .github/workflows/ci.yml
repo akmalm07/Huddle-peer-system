@@ -1,9 +1,9 @@
-name: CI
+name: CI and deploy Huddle
 
 on:
   pull_request:
   push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -28,3 +28,158 @@ jobs:
         shell: bash
         run: |
           ! rg --glob '!node_modules/**' --glob '!package-lock.json' --glob '!*.md' "(?i)(api[_-]?key|secret|password)\s*[:=]\s*[\"'][^\"']{12,}" .
+
+  deploy-firebase-rules:
+    name: Deploy Firebase Rules
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      DEPLOYER_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Validate deployment configuration
+        shell: bash
+        run: |
+          : "${GCP_PROJECT_ID:?Set the GCP_PROJECT_ID repository variable}"
+          : "${WORKLOAD_IDENTITY_PROVIDER:?Set the GCP_WORKLOAD_IDENTITY_PROVIDER repository variable}"
+          : "${DEPLOYER_SERVICE_ACCOUNT:?Set the GCP_DEPLOYER_SERVICE_ACCOUNT repository variable}"
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.DEPLOYER_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+      - name: Deploy Firestore and Realtime Database Rules
+        run: npm exec --yes --package=firebase-tools@15.31.0 -- firebase deploy --project "$GCP_PROJECT_ID" --only firestore:rules,database
+
+  deploy-auth:
+    name: Build and deploy auth API to Cloud Run
+    needs: [verify, deploy-firebase-rules]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: production
+    concurrency:
+      group: huddle-production-auth
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      ARTIFACT_REGISTRY_REPOSITORY: ${{ vars.ARTIFACT_REGISTRY_REPOSITORY }}
+      AUTH_TICKET_SECRET_NAME: ${{ vars.AUTH_TICKET_SECRET_NAME }}
+      AUTH_TICKET_SECRET_VERSION: ${{ vars.AUTH_TICKET_SECRET_VERSION }}
+      CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT: ${{ vars.CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT }}
+      CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
+      FIREBASE_DATABASE_URL: ${{ vars.FIREBASE_DATABASE_URL }}
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+      HUDDLE_ALLOWED_ORIGIN: ${{ vars.HUDDLE_ALLOWED_ORIGIN }}
+      HUDDLE_TURN_URLS: ${{ vars.HUDDLE_TURN_URLS }}
+      HUDDLE_WEBAUTHN_RP_ID: ${{ vars.HUDDLE_WEBAUTHN_RP_ID }}
+      WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      DEPLOYER_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Validate deployment configuration
+        shell: bash
+        run: |
+          for name in ARTIFACT_REGISTRY_REPOSITORY AUTH_TICKET_SECRET_NAME AUTH_TICKET_SECRET_VERSION CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT CLOUD_RUN_SERVICE FIREBASE_DATABASE_URL GCP_PROJECT_ID GCP_REGION HUDDLE_ALLOWED_ORIGIN HUDDLE_TURN_URLS HUDDLE_WEBAUTHN_RP_ID WORKLOAD_IDENTITY_PROVIDER DEPLOYER_SERVICE_ACCOUNT; do
+            : "${!name:?Set the $name repository variable}"
+          done
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.DEPLOYER_SERVICE_ACCOUNT }}
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+      - name: Configure Artifact Registry authentication
+        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+      - name: Build and push auth API image
+        shell: bash
+        run: |
+          IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTIFACT_REGISTRY_REPOSITORY}/${CLOUD_RUN_SERVICE}:${GITHUB_SHA}"
+          docker build --tag "$IMAGE" --file apps/auth/Dockerfile .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+      - name: Deploy auth API to Cloud Run
+        shell: bash
+        run: |
+          gcloud run deploy "$CLOUD_RUN_SERVICE" \
+            --project "$GCP_PROJECT_ID" \
+            --region "$GCP_REGION" \
+            --image "$IMAGE" \
+            --service-account "$CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT" \
+            --allow-unauthenticated \
+            --set-env-vars "^|^FIREBASE_PROJECT_ID=${GCP_PROJECT_ID}|FIREBASE_DATABASE_URL=${FIREBASE_DATABASE_URL}|HUDDLE_ALLOWED_ORIGIN=${HUDDLE_ALLOWED_ORIGIN}|HUDDLE_AUTH_PORT=8080|HUDDLE_BIND_HOST=0.0.0.0|HUDDLE_TURN_URLS=${HUDDLE_TURN_URLS}|HUDDLE_WEBAUTHN_RP_ID=${HUDDLE_WEBAUTHN_RP_ID}" \
+            --set-secrets "HUDDLE_AUTH_TICKET_SECRET=${AUTH_TICKET_SECRET_NAME}:${AUTH_TICKET_SECRET_VERSION}" \
+            --quiet
+      - name: Verify deployed auth health
+        shell: bash
+        run: |
+          AUTH_URL="$(gcloud run services describe "$CLOUD_RUN_SERVICE" --project "$GCP_PROJECT_ID" --region "$GCP_REGION" --format='value(status.url)')"
+          test -n "$AUTH_URL"
+          curl --fail --silent --show-error --retry 5 --retry-all-errors "${AUTH_URL}/healthz" | jq -e '.status == "ok" and .service == "auth"'
+
+  deploy-web:
+    name: Build and deploy PWA to Firebase Hosting
+    needs: [verify, deploy-firebase-rules, deploy-auth]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: production
+    concurrency:
+      group: huddle-production-web
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      DEPLOYER_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+      FIREBASE_HOSTING_SITE: ${{ vars.FIREBASE_HOSTING_SITE }}
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      VITE_AUTH_API_ORIGIN: ${{ vars.VITE_AUTH_API_ORIGIN }}
+      VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+      VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+      VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+      VITE_FIREBASE_DATABASE_URL: ${{ vars.VITE_FIREBASE_DATABASE_URL }}
+      VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+      VITE_STUN_URLS: ${{ vars.VITE_STUN_URLS }}
+      WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
+      - run: npm install --global npm@11.7.0
+      - run: npm ci
+      - name: Validate deployment configuration
+        shell: bash
+        run: |
+          for name in DEPLOYER_SERVICE_ACCOUNT FIREBASE_HOSTING_SITE GCP_PROJECT_ID VITE_AUTH_API_ORIGIN VITE_FIREBASE_API_KEY VITE_FIREBASE_APP_ID VITE_FIREBASE_AUTH_DOMAIN VITE_FIREBASE_DATABASE_URL VITE_FIREBASE_PROJECT_ID VITE_STUN_URLS WORKLOAD_IDENTITY_PROVIDER; do
+            : "${!name:?Set the $name repository variable}"
+          done
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.DEPLOYER_SERVICE_ACCOUNT }}
+      - name: Build configured PWA
+        run: npm run build --workspace @huddle/web
+      - name: Deploy PWA to Firebase Hosting
+        run: npm exec --yes --package=firebase-tools@15.31.0 -- firebase deploy --project "$GCP_PROJECT_ID" --only "hosting:$FIREBASE_HOSTING_SITE"
+      - name: Verify hosted PWA responds
+        shell: bash
+        run: |
+          timeout 300 bash -c 'until curl --fail --silent --show-error "${VITE_AUTH_API_ORIGIN}/" >/dev/null; do sleep 5; done'

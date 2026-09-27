@@ -5,6 +5,24 @@
   "database": {
     "rules": "firebase/database.rules.json"
   },
+  "hosting": {
+    "site": "test-96102",
+    "public": "apps/web/dist",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/v1/**",
+        "run": {
+          "serviceId": "huddle-auth",
+          "region": "us-east4"
+        }
+      }
+    ]
+  },
   "emulators": {
     "auth": { "port": 9099 },
     "firestore": { "port": 8080 },

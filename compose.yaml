@@ -1,4 +1,21 @@
 services:
+  auth:
+    build:
+      context: .
+      dockerfile: apps/auth/Dockerfile
+    environment:
+      FIREBASE_DATABASE_URL: ${FIREBASE_DATABASE_URL}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON}
+      HUDDLE_ALLOWED_ORIGIN: ${HUDDLE_ALLOWED_ORIGIN:-http://localhost:5173}
+      HUDDLE_AUTH_PORT: 4001
+      HUDDLE_AUTH_TICKET_SECRET: ${HUDDLE_AUTH_TICKET_SECRET}
+      HUDDLE_BIND_HOST: 0.0.0.0
+      HUDDLE_TURN_SHARED_SECRET: ${HUDDLE_TURN_SHARED_SECRET:-}
+      HUDDLE_TURN_URLS: ${HUDDLE_TURN_URLS:-[]}
+      HUDDLE_WEBAUTHN_RP_ID: ${HUDDLE_WEBAUTHN_RP_ID:-localhost}
+    ports:
+      - "4001:4001"
   signaling:
     build:
       context: .
@@ -11,3 +28,20 @@ services:
       EXPERIMENTAL_DEVICE_FALLBACK: "false"
     ports:
       - "4002:4002"
+  turn:
+    image: coturn/coturn:4.6.2
+    command:
+      - --fingerprint
+      - --lt-cred-mech
+      - --no-cli
+      - --no-multicast-peers
+      - --realm=${TURN_REALM:-huddle.local}
+      - --use-auth-secret
+      - --static-auth-secret=${HUDDLE_TURN_SHARED_SECRET}
+      - --external-ip=${TURN_EXTERNAL_IP}
+      - --min-port=49160
+      - --max-port=49200
+    ports:
+      - "3478:3478/tcp"
+      - "3478:3478/udp"
+      - "49160-49200:49160-49200/udp"
