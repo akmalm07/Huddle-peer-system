@@ -40,6 +40,7 @@ coverage/
 .tmp/
 temp/
 *.local
+.firebase/
 
 # testing frameworks
 jest-cache/
