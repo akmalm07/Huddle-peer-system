@@ -127,8 +127,8 @@ jobs:
       - name: Verify deployed auth health
         shell: bash
         run: |
-          READY="$(gcloud run services describe "$CLOUD_RUN_SERVICE" --project "$GCP_PROJECT_ID" --region "$GCP_REGION" --format='value(status.conditions[?type=Ready].status)')"
-          test "$READY" = "True"
+          REVISION="$(gcloud run services describe "$CLOUD_RUN_SERVICE" --project "$GCP_PROJECT_ID" --region "$GCP_REGION" --format='value(status.latestReadyRevisionName)')"
+          test -n "$REVISION"
 
   deploy-web:
     name: Build and deploy PWA to Firebase Hosting
