@@ -43,7 +43,7 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
     if (request.method === "OPTIONS") return respond(response, 204, undefined);
     if (!sameOrigin(request)) return respond(response, 403, { code: "ORIGIN_FORBIDDEN" });
     const pathname = new URL(request.url ?? "/", config.allowedOrigin).pathname;
-    if (request.method === "GET" && pathname === "/healthz") return respond(response, 200, { status: "ok", service: "auth", authentication: "passkey" });
+    if (request.method === "GET" && (pathname === "/healthz" || pathname === "/v1/healthz")) return respond(response, 200, { status: "ok", service: "auth", authentication: "passkey" });
     if (request.method === "POST" && pathname === "/v1/passkeys/register/options") return registrationOptions(await jsonBody(request), response);
     if (request.method === "POST" && pathname === "/v1/passkeys/register/verify") return registrationVerify(await jsonBody(request), response);
     if (request.method === "POST" && pathname === "/v1/passkeys/login/options") return authenticationOptions(await jsonBody(request), response);
